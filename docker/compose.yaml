@@ -1,0 +1,38 @@
+services:
+  nats:
+    image: nats:latest
+    ports:
+      - 4225:4222
+    command: "--js"
+    healthcheck:
+      test: wget http://nats:4222/healthz -q -S -O -
+      start_period: 1s
+      retries: 1
+      timeout: 1s
+      interval: 15s
+
+  natsbox:
+    image: docker.io/natsio/nats-box:latest
+    volumes:
+      - ./nats-init.sh:/bin/init.sh
+    command: "sh /bin/init.sh"
+    depends_on:
+      nats:
+        condition: service_started
+
+  ton:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        target: ton
+    env_file: ../.env
+    environment:
+      DISABLE_METRICS: true
+      DISABLE_HEALTH: true
+      DISABLE_TRACING: true
+      NATS_URL: nats://nats:4222
+      LOG_LEVEL: debug
+    depends_on:
+      natsbox:
+        condition: service_completed_successfully
