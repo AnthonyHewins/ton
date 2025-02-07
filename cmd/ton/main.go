@@ -21,9 +21,10 @@ var version string
 
 type config struct {
 	conf.BootstrapConf
+	conf.Tradovate
 
-	StreamPrefix string `env:"STREAM_PREFIX" envDefault:"nalpaca"`
-	Bucket       string `env:"NATS_KV_BUCKET" envDefault:"nalpaca"`
+	StreamPrefix string `env:"STREAM_PREFIX" envDefault:"ton"`
+	Bucket       string `env:"NATS_KV_BUCKET" envDefault:"ton"`
 
 	ProcessingTimeout time.Duration `env:"PROCESSING_TIMEOUT" envDefault:"3s"`
 }

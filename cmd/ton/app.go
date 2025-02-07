@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/AnthonyHewins/ton/internal/conf"
+	"github.com/AnthonyHewins/ton/internal/controller"
+	"github.com/AnthonyHewins/tradovate"
 	"github.com/caarlos0/env/v11"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,6 +23,9 @@ func newCounter(system, name, desc string) prometheus.Counter {
 
 type app struct {
 	*conf.Server
+	kv         jetstream.KeyValue
+	ws         *tradovate.WS
+	controller *controller.Controller
 }
 
 type consumer struct {
@@ -46,51 +51,51 @@ func newApp(ctx context.Context) (*app, error) {
 		}
 	}()
 
-	if err = a.connectNATS(ctx, &c); err != nil {
+	js, err := jetstream.New(a.NC)
+	if err != nil {
+		a.Logger.ErrorContext(ctx, "failed connecting to jetstream", "err", err)
 		return nil, err
 	}
+
+	a.kv, err = js.KeyValue(ctx, c.Bucket)
+	if err != nil {
+		a.Logger.ErrorContext(ctx, "failed connecting to nalpaca KV bucket", "err", err, "bucket", c.Bucket)
+		return nil, err
+	}
+
+	a.controller = controller.New(appName, a.Logger, a.TP, js, c.Timeout)
+	a.ws, err = b.Socket(ctx,
+		&c.Tradovate,
+		tradovate.WithChartHandler(a.controller.Chart.Publish),
+		tradovate.WithEntityHandler(func(em *tradovate.EntityMsg) {}),
+		tradovate.WithMarketDataHandler(func(md *tradovate.MarketData) {}),
+		tradovate.WithErrHandler(func(err error) {
+			if err != nil {
+				a.Logger.ErrorContext(ctx, "websocket error", "err", err)
+			}
+		}),
+	)
 
 	return &a, nil
 }
 
-func (a *app) connectNATS(ctx context.Context, c *config) error {
-	js, err := jetstream.New(a.NC)
-	if err != nil {
-		a.Logger.ErrorContext(ctx, "failed connecting to jetstream", "err", err)
-		return err
-	}
-
-	kv, err := js.KeyValue(ctx, c.Bucket)
-	if err != nil {
-		a.Logger.ErrorContext(ctx, "failed connecting to nalpaca KV bucket", "err", err, "bucket", c.Bucket)
-		return err
-	}
-
-	return err
-}
-
-func (a *app) connect(ctx context.Context, js jetstream.JetStream, stream, consumer string) (jetstream.Consumer, error) {
-	x, err := js.Consumer(ctx, stream, consumer)
-	if err != nil {
-		a.Logger.ErrorContext(ctx,
-			"failed connecting to consumer",
-			"err", err,
-			"stream", stream,
-			"consumer", consumer,
-		)
-	}
-
-	return x, err
-}
+// func (a *app) connect(ctx context.Context, js jetstream.JetStream, stream, consumer string) (jetstream.Consumer, error) {
+// x, err := js.Consumer(ctx, stream, consumer)
+// if err != nil {
+// a.Logger.ErrorContext(ctx,
+// "failed connecting to consumer",
+// "err", err,
+// "stream", stream,
+// "consumer", consumer,
+// )
+// }
+//
+// return x, err
+// }
 
 func (a *app) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-
-	type consumers struct {
-		name     string
-		consumer jetstream.ConsumeContext
-	}
 
 	a.Server.Shutdown(ctx)
 }

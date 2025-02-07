@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package ordersvc.v0;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/AnthonyHewins/ton/gen/go/ordersvc/v0;ordersvc";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse) {}
+  rpc CreateOcoOrder(CreateOcoOrderRequest) returns (CreateOcoOrderResponse) {}
+  rpc CreateOsoOrder(CreateOsoOrderRequest) returns (CreateOsoOrderResponse) {}
+}
+
+enum Action {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_BUY = 1;
+  ACTION_SELL = 2;
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0; // same as "unknown"
+  ORDER_STATUS_CANCELED = 1;
+  ORDER_STATUS_COMPLETED = 2;
+  ORDER_STATUS_EXPIRED = 3;
+  ORDER_STATUS_FILLED = 4;
+  ORDER_STATUS_PENDING_CANCEL = 5;
+  ORDER_STATUS_PENDING_NEW = 6;
+  ORDER_STATUS_PENDING_REPLACE = 7;
+  ORDER_STATUS_REJECTED = 8;
+  ORDER_STATUS_SUSPENDED = 9;
+  ORDER_STATUS_WORKING = 10;
+}
+
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_LIMIT = 1;
+  ORDER_TYPE_MIT = 2;
+  ORDER_TYPE_MARKET = 3;
+  ORDER_TYPE_QTS = 4;
+  ORDER_TYPE_STOP = 5;
+  ORDER_TYPE_STOPLIMIT = 6;
+  ORDER_TYPE_TRAILINGSTOP = 7;
+  ORDER_TYPE_TRAILINGSTOPLIMIT = 8;
+}
+
+enum TIF {
+  TIF_UNSPECIFIED = 0;
+  TIF_DAY = 1;
+  TIF_FOK = 2;
+  TIF_GTC = 3;
+  TIF_GTD = 4;
+  TIF_IOC = 5;
+}
+
+// Order contains the protobuf definition for all orders that are saved in the order
+// cache
+message Order {
+  int64 id = 1;
+  uint64 account_id = 2;
+  uint64 contract_id = 3;
+  uint64 spread_definition_id = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  Action action = 6;
+  OrderStatus status = 7;
+  uint64 execution_provider_id = 8; 
+  uint64 oco_id = 9;
+  uint64 parent_id = 10;
+  uint64 linked_id = 11;       
+  bool admin = 12;
+}
+
+message OtherOrder {
+	Action action = 1;
+	string client_order_id = 2;
+	OrderType order_type = 3;
+	double price = 4;
+	double stop_price = 5;
+	uint32 max_show = 6;
+	double peg_difference = 7;
+	TIF tif = 8;
+	google.protobuf.Timestamp expire_time = 9;
+	string text = 10;
+}
+
+//====================================
+// Create order 
+//====================================
+message CreateOrderRequest {
+  // Account username (might not be a field for long, as the server will handle this value)
+  string account_spec = 1;
+  // account ID (might not be a field for long, as the server will handle this value)
+  int64  account_id = 2;
+  // Client order ID, created for idempotency
+  string client_order_id = 3;
+  Action action = 4;
+  string symbol = 5;
+  uint32 order_qty = 6;
+  OrderType order_type = 7;
+  double price = 8;
+  double stop_price = 9;
+  uint32 max_show = 10;
+  double peg_difference = 11;
+  TIF time_in_force = 12;
+  google.protobuf.Timestamp expire_time = 13;
+  string text = 14;
+  google.protobuf.Timestamp activation_time = 15;
+  string custom_tag_50 = 16;
+}
+
+message CreateOrderResponse {
+  int64 order_id = 1;
+}
+
+//====================================
+// OcoReq
+//====================================
+message CreateOcoOrderRequest {
+  string account_spec = 1;
+  uint32 account_id = 2;
+  string client_order_id = 3;
+  Action action = 4;
+  string symbol = 5;
+  uint32 order_qty = 6;
+  OrderType order_type = 7;
+  double price = 8;
+  double stop_price = 9;
+  uint32 max_show = 10;
+  double peg_difference = 11;
+  TIF tif = 12;
+  google.protobuf.Timestamp expire_time = 13;
+  string text = 14;
+  google.protobuf.Timestamp activation_time = 15;
+  string custom_tag_50 = 16;
+  bool is_automated = 17;
+  OtherOrder other = 18;
+}
+
+message CreateOcoOrderResponse {
+  uint64 order_id = 1;
+  uint64 oco_id = 2;
+}
+
+//====================================
+// OsoOrder
+//====================================
+message CreateOsoOrderRequest {
+  string account_spec = 1;
+  uint32 account_id = 2;
+  string client_order_id = 3;
+  Action action = 4;
+  string symbol = 5;
+  uint32 order_qty = 6;
+  OrderType order_type = 7;
+  double price = 8;
+  double stop_price = 9;
+  uint32 max_show = 10;
+  double peg_difference = 11;
+  TIF tif = 12;
+  google.protobuf.Timestamp expire_time = 13;
+  string text = 14;
+  google.protobuf.Timestamp activation_time = 15;
+  string custom_tag_50 = 16;
+  OtherOrder Bracket1 = 17;
+  OtherOrder Bracket2 = 18;
+}
+
+message CreateOsoOrderResponse {
+  uint64 order_id = 1;
+  uint64 bracket1_id = 2;
+  uint64 brakcet2_id = 3;
+}

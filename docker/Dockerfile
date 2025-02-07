@@ -12,5 +12,5 @@ FROM gcr.io/distroless/base-debian12
 WORKDIR /root/
 COPY --from=build /app/bin/server /root
 
-EXPOSE 8088 7654
+EXPOSE 8088 7654 8080
 ENTRYPOINT ["/root/server"]
