@@ -1,4 +1,4 @@
-package controller
+package ingest
 
 import (
 	"context"
@@ -8,23 +8,69 @@ import (
 	"time"
 
 	"github.com/AnthonyHewins/ton/gen/go/entity/v0"
-	"github.com/AnthonyHewins/ton/pkg/ton"
+	"github.com/AnthonyHewins/ton/gen/go/ordersvc/v0"
+	"github.com/AnthonyHewins/ton/gen/go/positionpb/v0"
 	"github.com/AnthonyHewins/tradovate"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 )
 
-type EntityPublisher struct {
-	prefix string
-	js     jetstream.JetStream
+type EntityPub struct {
+	prefix        string
+	logger        *slog.Logger
+	timeout       time.Duration
+	js            jetstream.JetStream
+	entityPubErrs prometheus.Counter
 
-	orderKV  jetstream.KeyValue
-	orderErr prometheus.Counter
+	orders    entityKV[*ordersvc.Order, *tradovate.Order]
+	positions entityKV[*positionpb.Position, *tradovate.Position]
+}
 
-	publishErr prometheus.Counter
-	timeout    time.Duration
-	logger     *slog.Logger
+func (e *EntityPub) PublishEntity(data *tradovate.EntityMsg) {
+	ctx, cancel := context.WithTimeout(context.Background(), e.timeout)
+	defer cancel()
+
+	switch data.Type {
+	case tradovate.EntityTypeOrder:
+		e.orders.publish(ctx, data)
+	case tradovate.EntityTypePosition:
+		e.positions.publish(ctx, data)
+	default:
+		if err := e.pub(ctx, data); err != nil {
+			e.entityPubErrs.Inc()
+		}
+	}
+}
+
+func (e *EntityPub) pub(ctx context.Context, data *tradovate.EntityMsg) error {
+	buf, err := proto.Marshal(&entity.Entity{
+		Type:  convertType(data.Type),
+		Event: eventType(data.Event),
+		Raw:   data.Data,
+	})
+
+	if err != nil {
+		e.logger.ErrorContext(ctx, "failed proto marshal of data", "err", err, "event", data.Event, "type", data.Type, "raw", data.Data)
+		return err
+	}
+
+	_, err = e.js.Publish(ctx,
+		fmt.Sprintf(
+			"%s.entity.%s.%s",
+			e.prefix,
+			strings.ToLower(data.Type.String()),
+			strings.ToLower(data.Event.String()),
+		),
+		buf,
+	)
+
+	if err != nil {
+		return nil
+	}
+
+	e.logger.ErrorContext(ctx, "failed publishing message", "err", err)
+	return err
 }
 
 func convertType(t tradovate.EntityType) entity.EntityType {
@@ -97,8 +143,6 @@ func convertType(t tradovate.EntityType) entity.EntityType {
 		return entity.EntityType_ENTITY_TYPE_ORGANIZATION
 	case tradovate.EntityTypePermissionedAccountAutoLiq:
 		return entity.EntityType_ENTITY_TYPE_PERMISSIONED_ACCOUNT_AUTO_LIQ
-	case tradovate.EntityTypePosition:
-		return entity.EntityType_ENTITY_TYPE_POSITION
 	case tradovate.EntityTypeProduct:
 		return entity.EntityType_ENTITY_TYPE_PRODUCT
 	case tradovate.EntityTypeProductMargin:
@@ -149,69 +193,4 @@ func eventType(e tradovate.EventType) entity.Event {
 	default:
 		return entity.Event_EVENT_UNSPECIFIED
 	}
-}
-
-func (e *EntityPublisher) Publish(data *tradovate.EntityMsg) {
-	ctx, cancel := context.WithTimeout(context.Background(), e.timeout)
-	defer cancel()
-
-	if err := e.pub(ctx, data); err != nil {
-		e.publishErr.Inc()
-	}
-}
-
-func (e *EntityPublisher) pub(ctx context.Context, data *tradovate.EntityMsg) error {
-	switch data.Type {
-	case tradovate.EntityTypeOrder:
-		o, err := data.Order()
-		if err != nil {
-			e.logger.ErrorContext(ctx, "failed casting order event type as order", "event", data.Event, "type", data.Type, "raw", data.Data)
-			return err
-		}
-
-		return e.publishOrder(ctx, o)
-	}
-
-	buf, err := proto.Marshal(&entity.Entity{
-		Type:  convertType(data.Type),
-		Event: eventType(data.Event),
-		Raw:   data.Data,
-	})
-
-	if err != nil {
-		e.logger.ErrorContext(ctx, "failed proto marshal of data", "err", err, "event", data.Event, "type", data.Type, "raw", data.Data)
-		return err
-	}
-
-	_, err = e.js.Publish(ctx,
-		fmt.Sprintf(
-			"%s.entity.%s.%s",
-			e.prefix,
-			strings.ToLower(data.Type.String()),
-			strings.ToLower(data.Event.String()),
-		),
-		buf,
-	)
-
-	if err != nil {
-		return nil
-	}
-
-	e.logger.ErrorContext(ctx, "failed publishing message", "err", err)
-	return err
-}
-
-func (e *EntityPublisher) publishOrder(ctx context.Context, o *tradovate.Order) error {
-	buf, err := proto.Marshal(ton.OrderProtoV0(o))
-	if err != nil {
-		e.logger.ErrorContext(ctx, "failed marshal of order", "order", o)
-		return err
-	}
-
-	if _, err = e.orderKV.Put(ctx, fmt.Sprintf("order.%d", o.ID), buf); err != nil {
-		e.logger.ErrorContext(ctx, "failed putting order into kv", "order", o, "err", err)
-		return err
-	}
-
-	return nil
 }

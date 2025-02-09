@@ -1,7 +1,8 @@
-package controller
+package ingest
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 )
 
 type ChartPublisher struct {
+	prefix  string
 	js      jetstream.JetStream
 	timeout time.Duration
 	logger  *slog.Logger
@@ -67,7 +69,7 @@ func (c *ChartPublisher) pushBars(ctx context.Context, chart *tradovate.Chart) e
 		return err
 	}
 
-	if _, err = c.js.Publish(ctx, "", buf); err != nil {
+	if _, err = c.js.Publish(ctx, fmt.Sprintf("%s.chart.%d", c.prefix, chart.ID), buf); err != nil {
 		c.logger.ErrorContext(ctx, "failed publishing bar chart", "err", err, "chart", chart)
 		return err
 	}
@@ -107,7 +109,7 @@ func (c *ChartPublisher) pushTicks(ctx context.Context, chart *tradovate.Chart) 
 		return err
 	}
 
-	if _, err := c.js.Publish(ctx, "", buf); err != nil {
+	if _, err := c.js.Publish(ctx, fmt.Sprintf("%s.tick.%d", c.prefix, chart.ID), buf); err != nil {
 		c.logger.ErrorContext(ctx, "failed publishing tick chart", "err", err, "chart", chart)
 		return err
 	}

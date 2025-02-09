@@ -47,3 +47,42 @@ message BarChart {
     google.protobuf.Timestamp trade_date = 2;
     repeated Bar bars = 3;
 }
+
+message PriceQty {
+    double price = 1;
+    double size = 2;
+}
+
+message DOMs { repeated DOM doms = 1; }
+message DOM {
+    int64         contract_id = 1;
+    google.protobuf.Timestamp   timestamp  = 2;
+    repeated PriceQty  bids       = 3;
+    repeated PriceQty  offers     = 4;
+}
+
+
+message Quotes { repeated Quote quotes = 1; }
+message Quote {
+    int64       contract_id = 1;
+    google.protobuf.Timestamp timestamp  = 2;
+    PriceQty  bid   = 3;
+    PriceQty  offer = 4;
+    PriceQty  trade = 5;
+    double   total_trade_volume = 6;
+    double   open_interest     = 7;
+    double   low_price        = 8;
+    double   opening_price    = 9;
+    double   high_price       = 10;
+    double   settlement_price = 11;
+}
+
+message Histograms { repeated Histogram histograms = 1; }
+message Histogram {
+    int64 contract_id = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    google.protobuf.Timestamp trade_date = 3;
+    double base = 4;
+    map<string, double> items = 5;
+    bool refresh = 6;
+}

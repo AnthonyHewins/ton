@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package positionpb.v0;
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/AnthonyHewins/ton/gen/go/positionpb/v0;positionpb";
+
+message Position {
+	int64 id = 1;
+	int64 account_id = 2;
+	int64 contract_id = 3;
+	google.protobuf.Timestamp timestamp = 4;
+	google.protobuf.Timestamp trade_date = 5;
+	int64 net_pos = 6;
+	double net_price = 7;
+	int64 bought = 8;
+	double bought_value = 9;
+	int64 sold = 10;
+	double sold_value = 11;
+	int64 prev_pos = 12;
+	double prev_price = 13;
+}

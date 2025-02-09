@@ -15,7 +15,7 @@ type Tradovate struct {
 
 	Timeout time.Duration `env:"TRADOVATE_TIMEOUT" envDefault:"3s"`
 
-	Name       string    `env:"TRADOVATE_NAME" envDefault:""`
+	Name       string    `env:"TRADOVATE_NAME"`
 	Password   string    `env:"TRADOVATE_PASSWORD"`
 	AppID      string    `env:"TRADOVATE_APPID"`
 	AppVersion string    `env:"TRADOVATE_APPVERSION"`
@@ -37,7 +37,7 @@ func (t *Tradovate) Creds() *tradovate.Creds {
 }
 
 func (b *Bootstrapper) Socket(ctx context.Context, c *Tradovate, opts ...tradovate.WSOpt) (*tradovate.WS, error) {
-	return tradovate.NewSocket(
+	ws, err := tradovate.NewSocket(
 		ctx,
 		c.TradovateWebsocketURL,
 		nil,
@@ -48,4 +48,11 @@ func (b *Bootstrapper) Socket(ctx context.Context, c *Tradovate, opts ...tradova
 		),
 		append(opts, tradovate.WithTimeout(c.Timeout))...,
 	)
+
+	if err != nil {
+		b.Logger.ErrorContext(ctx, "failed connecting to tradovate WS", "err", err)
+		return nil, err
+	}
+
+	return ws, nil
 }

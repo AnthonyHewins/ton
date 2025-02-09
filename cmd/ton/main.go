@@ -23,8 +23,8 @@ type config struct {
 	conf.BootstrapConf
 	conf.Tradovate
 
-	StreamPrefix string `env:"STREAM_PREFIX" envDefault:"ton"`
-	Bucket       string `env:"NATS_KV_BUCKET" envDefault:"ton"`
+	Prefix string `env:"STREAM_PREFIX" envDefault:"ton"`
+	Bucket string `env:"NATS_KV_BUCKET" envDefault:"ton"`
 
 	ProcessingTimeout time.Duration `env:"PROCESSING_TIMEOUT" envDefault:"3s"`
 }

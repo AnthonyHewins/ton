@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/AnthonyHewins/ton/internal/conf"
-	"github.com/AnthonyHewins/ton/internal/controller"
+	"github.com/AnthonyHewins/ton/internal/ingest"
 	"github.com/AnthonyHewins/tradovate"
 	"github.com/caarlos0/env/v11"
 	"github.com/nats-io/nats.go/jetstream"
@@ -25,7 +25,7 @@ type app struct {
 	*conf.Server
 	kv         jetstream.KeyValue
 	ws         *tradovate.WS
-	controller *controller.Controller
+	controller *ingest.Controller
 }
 
 type consumer struct {
@@ -57,18 +57,18 @@ func newApp(ctx context.Context) (*app, error) {
 		return nil, err
 	}
 
-	a.kv, err = js.KeyValue(ctx, c.Bucket)
+	kv, err := js.KeyValue(ctx, c.Bucket)
 	if err != nil {
 		a.Logger.ErrorContext(ctx, "failed connecting to nalpaca KV bucket", "err", err, "bucket", c.Bucket)
 		return nil, err
 	}
 
-	a.controller = controller.New(appName, a.Logger, a.TP, js, c.Timeout)
+	controller := ingest.New(appName, c.Prefix, a.Logger, a.TP, js, kv, c.Timeout)
 	a.ws, err = b.Socket(ctx,
 		&c.Tradovate,
-		tradovate.WithChartHandler(a.controller.Chart.Publish),
-		tradovate.WithEntityHandler(func(em *tradovate.EntityMsg) {}),
-		tradovate.WithMarketDataHandler(func(md *tradovate.MarketData) {}),
+		tradovate.WithChartHandler(controller.Chart.Publish),
+		// tradovate.WithEntityHandler(a.controller.Entity.PublishEntity),
+		// tradovate.WithMarketDataHandler(a.controller.MarketData.Publish),
 		tradovate.WithErrHandler(func(err error) {
 			if err != nil {
 				a.Logger.ErrorContext(ctx, "websocket error", "err", err)
@@ -76,26 +76,25 @@ func newApp(ctx context.Context) (*app, error) {
 		}),
 	)
 
+	if err != nil {
+		a.Logger.ErrorContext(ctx, "failed tradovate websocket creation", "err", err)
+		return nil, err
+	}
+
+	if err = a.controller.Initialize(ctx, a.ws); err != nil {
+		return nil, err
+	}
+
 	return &a, nil
 }
-
-// func (a *app) connect(ctx context.Context, js jetstream.JetStream, stream, consumer string) (jetstream.Consumer, error) {
-// x, err := js.Consumer(ctx, stream, consumer)
-// if err != nil {
-// a.Logger.ErrorContext(ctx,
-// "failed connecting to consumer",
-// "err", err,
-// "stream", stream,
-// "consumer", consumer,
-// )
-// }
-//
-// return x, err
-// }
 
 func (a *app) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
+
+	if err := a.ws.Close(ctx); err != nil {
+		a.Logger.ErrorContext(ctx, "failed graceful shutdown of tradovate websocket", "err", err)
+	}
 
 	a.Server.Shutdown(ctx)
 }
