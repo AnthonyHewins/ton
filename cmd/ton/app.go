@@ -6,31 +6,13 @@ import (
 
 	"github.com/AnthonyHewins/ton/internal/conf"
 	"github.com/AnthonyHewins/ton/internal/ingest"
-	"github.com/AnthonyHewins/tradovate"
 	"github.com/caarlos0/env/v11"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/prometheus/client_golang/prometheus"
 )
-
-func newCounter(system, name, desc string) prometheus.Counter {
-	return prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: appName,
-		Subsystem: system,
-		Name:      name,
-		Help:      desc,
-	})
-}
 
 type app struct {
 	*conf.Server
-	kv         jetstream.KeyValue
-	ws         *tradovate.WS
 	controller *ingest.Controller
-}
-
-type consumer struct {
-	ctx      jetstream.ConsumeContext
-	ingestor jetstream.Consumer
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -63,28 +45,32 @@ func newApp(ctx context.Context) (*app, error) {
 		return nil, err
 	}
 
-	controller := ingest.New(appName, c.Prefix, a.Logger, a.TP, js, kv, c.Timeout)
-	a.ws, err = b.Socket(ctx,
-		&c.Tradovate,
-		tradovate.WithChartHandler(controller.Chart.Publish),
-		// tradovate.WithEntityHandler(a.controller.Entity.PublishEntity),
-		// tradovate.WithMarketDataHandler(a.controller.MarketData.Publish),
-		tradovate.WithErrHandler(func(err error) {
-			if err != nil {
-				a.Logger.ErrorContext(ctx, "websocket error", "err", err)
-			}
-		}),
-	)
+	a.controller, err = ingest.New(ctx, &ingest.Opts{
+		App:       appName,
+		Prefix:    c.Prefix,
+		Logger:    a.Logger,
+		TP:        a.TP,
+		JetStream: js,
+		KeyValue:  kv,
+		SocketURL: c.TradovateWebsocketURL,
+		RestURL:   c.TradovateRestURL,
+		Creds:     c.Creds(),
+		Timeout:   c.Timeout,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	if err != nil {
 		a.Logger.ErrorContext(ctx, "failed tradovate websocket creation", "err", err)
 		return nil, err
 	}
 
-	if err = a.controller.Initialize(ctx, a.ws); err != nil {
+	if err = a.controller.Initialize(ctx); err != nil {
 		return nil, err
 	}
 
+	a.Logger.InfoContext(ctx, "finished bootstrapping")
 	return &a, nil
 }
 
@@ -92,9 +78,6 @@ func (a *app) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
-	if err := a.ws.Close(ctx); err != nil {
-		a.Logger.ErrorContext(ctx, "failed graceful shutdown of tradovate websocket", "err", err)
-	}
-
+	a.controller.Close()
 	a.Server.Shutdown(ctx)
 }

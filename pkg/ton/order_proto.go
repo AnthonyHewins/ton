@@ -25,7 +25,7 @@ func OrderProtoV0(o *tradovate.Order) *ordersvc.Order {
 
 func ProtoV0Order(o *ordersvc.Order) *tradovate.Order {
 	return &tradovate.Order{
-		ID:                  int(o.Id),
+		ID:                  uint(o.Id),
 		AccountID:           uint(o.AccountId),
 		ContractID:          uint(o.ContractId),
 		SpreadDefinitionID:  uint(o.SpreadDefinitionId),
@@ -115,7 +115,7 @@ func statusProtoV0(status tradovate.OrderStatus) ordersvc.OrderStatus {
 	case tradovate.OrderStatusWorking:
 		return ordersvc.OrderStatus_ORDER_STATUS_WORKING
 	default:
-		return ordersvc.OrderStatus_ORDER_STATUS_UNKNOWN
+		return ordersvc.OrderStatus_ORDER_STATUS_UNSPECIFIED
 	}
 }
 

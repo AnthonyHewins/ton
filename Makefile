@@ -42,7 +42,7 @@ compose: ## build docker compose
 run-%: ## Run the server using .env variables
 	export $$(cat .env | xargs) && ./bin/$(patsubst run-%,%,$@)
 
-run-compose: ## Run a binary with docker compose
+up-compose: ## Run a binary with docker compose
 	docker-compose -f ./docker/compose.yaml up
 
 #======================================

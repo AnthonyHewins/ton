@@ -1,8 +1,6 @@
 package conf
 
 import (
-	"context"
-	"net/http"
 	"time"
 
 	"github.com/AnthonyHewins/tradovate"
@@ -10,8 +8,8 @@ import (
 )
 
 type Tradovate struct {
-	TradovateRestURL      string `env:"TRADOVATE_REST_URL" envDefault:"wss://demo.tradovateapi.com/v1/websocket"`
-	TradovateWebsocketURL string `env:"TRADOVATE_WS_URL" envDefault:""`
+	TradovateRestURL      string `env:"TRADOVATE_REST_URL" envDefault:"https://demo.tradovateapi.com/v1"`
+	TradovateWebsocketURL string `env:"TRADOVATE_WS_URL" envDefault:"wss://demo.tradovateapi.com/v1/websocket"`
 
 	Timeout time.Duration `env:"TRADOVATE_TIMEOUT" envDefault:"3s"`
 
@@ -19,9 +17,9 @@ type Tradovate struct {
 	Password   string    `env:"TRADOVATE_PASSWORD"`
 	AppID      string    `env:"TRADOVATE_APPID"`
 	AppVersion string    `env:"TRADOVATE_APPVERSION"`
-	CID        string    `env:"TRADOVATE_CID"`
+	CID        string    `env:"TRADOVATE_CLIENT_ID"`
 	DeviceID   uuid.UUID `env:"TRADOVATE_DEVICEID"`
-	Sec        uuid.UUID `env:"TRADOVATE_SEC"`
+	Sec        uuid.UUID `env:"TRADOVATE_SECRET"`
 }
 
 func (t *Tradovate) Creds() *tradovate.Creds {
@@ -30,29 +28,8 @@ func (t *Tradovate) Creds() *tradovate.Creds {
 		Password:   t.Password,
 		AppID:      t.AppID,
 		AppVersion: t.AppVersion,
-		CID:        t.CID,
+		ClientID:   t.CID,
 		DeviceID:   t.DeviceID,
-		Sec:        t.Sec,
+		Secret:     t.Sec,
 	}
-}
-
-func (b *Bootstrapper) Socket(ctx context.Context, c *Tradovate, opts ...tradovate.WSOpt) (*tradovate.WS, error) {
-	ws, err := tradovate.NewSocket(
-		ctx,
-		c.TradovateWebsocketURL,
-		nil,
-		tradovate.NewREST(
-			c.TradovateRestURL,
-			&http.Client{Timeout: c.Timeout},
-			c.Creds(),
-		),
-		append(opts, tradovate.WithTimeout(c.Timeout))...,
-	)
-
-	if err != nil {
-		b.Logger.ErrorContext(ctx, "failed connecting to tradovate WS", "err", err)
-		return nil, err
-	}
-
-	return ws, nil
 }

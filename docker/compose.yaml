@@ -14,8 +14,10 @@ services:
   natsbox:
     image: docker.io/natsio/nats-box:latest
     volumes:
-      - ./nats-init.sh:/bin/init.sh
+      - ./nats/init.sh:/bin/init.sh
     command: "sh /bin/init.sh"
+    environment: &nats
+      NATS_URL: nats://nats:4222
     depends_on:
       nats:
         condition: service_started
@@ -28,10 +30,10 @@ services:
         target: ton
     env_file: ../.env
     environment:
+      <<: *nats
       DISABLE_METRICS: true
       DISABLE_HEALTH: true
       DISABLE_TRACING: true
-      NATS_URL: nats://nats:4222
       LOG_LEVEL: debug
     depends_on:
       natsbox:

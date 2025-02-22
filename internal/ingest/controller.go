@@ -3,6 +3,7 @@ package ingest
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/AnthonyHewins/ton/gen/go/ordersvc/v0"
@@ -15,69 +16,118 @@ import (
 )
 
 type Controller struct {
-	Entity     EntityPub
-	Chart      ChartPublisher
-	MarketData MarketData
+	Orders Orders
+	Entity EntityPub
 }
 
-func New(app, subjectPrefix string, logger *slog.Logger, tp trace.TracerProvider, js jetstream.JetStream, kv jetstream.KeyValue, timeout time.Duration) *Controller {
+type Opts struct {
+	App, Prefix string
+	Logger      *slog.Logger
+	TP          trace.TracerProvider
+	jetstream.JetStream
+	jetstream.KeyValue
+
+	Token *tradovate.Token
+
+	SocketURL string
+	RestURL   string
+	*tradovate.Creds
+
+	Timeout time.Duration
+}
+
+func New(ctx context.Context, opts *Opts) (*Controller, error) {
 	metric := func(subsystem, name, help string) prometheus.Counter {
 		return prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: app,
+			Namespace: opts.App,
 			Subsystem: subsystem,
 			Name:      name,
 			Help:      help,
 		})
 	}
 
-	return &Controller{
-		MarketData: MarketData{
-			prefix:           subjectPrefix,
-			logger:           logger,
-			timeout:          timeout,
-			js:               js,
-			quotePubErrs:     metric("quote", "publish_err", "Number of quote publish errors"),
-			domPubErrs:       metric("dom", "publish_err", "Number of dom publish errors"),
-			histogramPubErrs: metric("histogram", "publish_err", "Number of histogram publish errors"),
-		},
-		Entity: EntityPub{
-			prefix:        subjectPrefix,
-			logger:        logger,
-			timeout:       timeout,
-			js:            js,
-			entityPubErrs: metric("entity", "publish_err", "Number of publish errors"),
-			orders: entityKV[*ordersvc.Order, *tradovate.Order]{
-				logger: logger,
-				kv:     kv,
-				c: orderTranslator{
-					putErrs: metric("order", "put_errs", "Count of PUT errors in nats KV"),
-					delErrs: metric("order", "del_errs", "Count of DEL errors in nats KV"),
-				},
-			},
-			positions: entityKV[*positionpb.Position, *tradovate.Position]{
-				logger: logger,
-				kv:     kv,
-				c: positionTranslator{
-					putErrs: metric("position", "put_errs", "Count of PUT errors in nats KV"),
-					delErrs: metric("position", "del_errs", "Count of DEL errors in nats KV"),
-				},
+	e := EntityPub{
+		prefix:        opts.Prefix,
+		logger:        opts.Logger,
+		timeout:       opts.Timeout,
+		js:            opts.JetStream,
+		entityPubErrs: metric("entity", "publish_err", "Number of publish errors"),
+		orders: entityKV[*ordersvc.Order, *tradovate.Order]{
+			logger: opts.Logger,
+			kv:     opts.KeyValue,
+			c: orderTranslator{
+				putErrs: metric("orderkv", "put_errs", "Count of PUT errors in nats KV"),
+				delErrs: metric("orderkv", "del_errs", "Count of DEL errors in nats KV"),
 			},
 		},
-		Chart: ChartPublisher{
-			js:            js,
-			timeout:       timeout,
-			logger:        logger,
-			barChartErrs:  metric("chart", "publish_bar_chart_errs", "Number of bar chart publish errors"),
-			tickChartErrs: metric("chart", "publish_tick_chart_errs", "Number of bar chart publish errors"),
+		positions: entityKV[*positionpb.Position, *tradovate.Position]{
+			logger: opts.Logger,
+			kv:     opts.KeyValue,
+			c: positionTranslator{
+				putErrs: metric("position", "put_errs", "Count of PUT errors in nats KV"),
+				delErrs: metric("position", "del_errs", "Count of DEL errors in nats KV"),
+			},
 		},
 	}
+
+	r := tradovate.NewREST(opts.RestURL, &http.Client{Timeout: opts.Timeout}, opts.Creds)
+
+	if opts.Token != nil && !opts.Token.Expired() {
+		r.SetToken(opts.Token)
+	}
+
+	ws, err := tradovate.NewSocket(
+		ctx,
+		opts.SocketURL,
+		nil,
+		r,
+		tradovate.WithTimeout(opts.Timeout),
+		tradovate.WithEntityHandler(e.PublishEntity),
+	)
+
+	if err != nil {
+		opts.Logger.ErrorContext(ctx,
+			"failed connecting to tradovate WS",
+			"err", err,
+			"creds", opts.Creds,
+		)
+		return nil, err
+	}
+
+	return &Controller{
+		Orders: Orders{
+			logger:      opts.Logger,
+			ws:          ws,
+			orderErr:    metric("orders", "place_order_err", "Count of errors placing regular orders"),
+			ocoErr:      metric("orders", "place_oco_order_err", "Count of errors placing oco orders"),
+			osoErr:      metric("orders", "place_oso_order_err", "Count of errors placing oso orders"),
+			placedOrder: metric("orders", "place_order", "Count of placed regular orders"),
+			placedOCO:   metric("orders", "place_oco_order", "Count of  placed oco orders"),
+			placedOSO:   metric("orders", "place_oso_order", "Count of placed oso orders"),
+		},
+		Entity: e,
+	}, nil
 }
 
-func (c *Controller) Initialize(ctx context.Context, ws *tradovate.WS) error {
+func (c *Controller) Close() error {
+	if c.Orders.ws == nil {
+		return nil
+	}
+
+	if err := c.Orders.ws.Close(); err != nil {
+		c.Orders.logger.Error("failed closing socket")
+		return err
+	}
+
+	c.Orders.logger.Debug("closed socket")
+	return nil
+}
+
+func (c *Controller) Initialize(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(func() error { return c.initOrders(ctx, ws) })
-	g.Go(func() error { return c.initPositions(ctx, ws) })
+	g.Go(func() error { return c.initOrders(ctx, c.Orders.ws) })
+	g.Go(func() error { return c.initPositions(ctx, c.Orders.ws) })
 
 	return g.Wait()
 }
