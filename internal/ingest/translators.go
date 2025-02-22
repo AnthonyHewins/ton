@@ -38,6 +38,6 @@ func (p positionTranslator) proto(x *tradovate.Position) *positionpb.Position {
 	return ton.PositionProtoV0(x)
 }
 
-func (p positionTranslator) id(x *tradovate.Position) string  { return fmt.Sprintf("position.%s", x.ID) }
+func (p positionTranslator) id(x *tradovate.Position) string  { return fmt.Sprintf("position.%d", x.ID) }
 func (o positionTranslator) putErrMetric() prometheus.Counter { return o.putErrs }
 func (o positionTranslator) delErrMetric() prometheus.Counter { return o.putErrs }

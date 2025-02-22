@@ -13,6 +13,9 @@ type Tradovate struct {
 
 	Timeout time.Duration `env:"TRADOVATE_TIMEOUT" envDefault:"3s"`
 
+	AccountSpec string `env:"TRADOVATE_ACCT_SPEC"`
+	AccountID   uint   `env:"TRADOVATE_ACCT_ID"`
+
 	Name       string    `env:"TRADOVATE_NAME"`
 	Password   string    `env:"TRADOVATE_PASSWORD"`
 	AppID      string    `env:"TRADOVATE_APPID"`

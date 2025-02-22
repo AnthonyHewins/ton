@@ -35,7 +35,7 @@ func (b *Bootstrapper) NATSConn(n *NATS) (*nats.Conn, error) {
 		if n.Password == "" {
 			msg := "config error: you set NATS password, but not a user. Please set both, or neither"
 			l.Error(msg, "user", n.User)
-			return nil, fmt.Errorf(msg)
+			return nil, fmt.Errorf("%s", msg)
 		}
 
 		l.Debug("user credentials set, adding as option")
@@ -43,7 +43,7 @@ func (b *Bootstrapper) NATSConn(n *NATS) (*nats.Conn, error) {
 	} else if n.Password != "" {
 		msg := "config error: you set NATS password, but not a user. Please set both, or neither"
 		l.Error(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, fmt.Errorf("%s", msg)
 	}
 
 	nc, err := nats.Connect(n.URL, opts...)

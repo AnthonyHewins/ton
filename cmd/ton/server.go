@@ -10,8 +10,8 @@ import (
 
 func (a *app) CreateOrder(ctx context.Context, req *ordersvc.CreateOrderRequest) (*ordersvc.CreateOrderResponse, error) {
 	id, err := a.controller.Orders.PlaceOrder(ctx, &tradovate.OrderReq{
-		AccountSpec:    req.AccountSpec,
-		AccountID:      int(req.AccountId),
+		AccountSpec:    a.accountSpec,
+		AccountID:      int(a.accountID),
 		ClientOrderID:  req.ClientOrderId,
 		Action:         ton.ProtoV0Action(req.Action),
 		Symbol:         req.Symbol,
@@ -38,8 +38,8 @@ func (a *app) CreateOrder(ctx context.Context, req *ordersvc.CreateOrderRequest)
 
 func (a *app) CreateOcoOrder(ctx context.Context, req *ordersvc.CreateOcoOrderRequest) (*ordersvc.CreateOcoOrderResponse, error) {
 	resp, err := a.controller.Orders.PlaceOCO(ctx, &tradovate.OcoReq{
-		AccountSpec:    req.AccountSpec,
-		AccountID:      uint(req.AccountId),
+		AccountSpec:    a.accountSpec,
+		AccountID:      a.accountID,
 		ClOrdID:        req.ClientOrderId,
 		Action:         ton.ProtoV0Action(req.Action),
 		Symbol:         req.Symbol,
@@ -70,8 +70,8 @@ func (a *app) CreateOcoOrder(ctx context.Context, req *ordersvc.CreateOcoOrderRe
 
 func (a *app) CreateOsoOrder(ctx context.Context, req *ordersvc.CreateOsoOrderRequest) (*ordersvc.CreateOsoOrderResponse, error) {
 	resp, err := a.controller.Orders.PlaceOSO(ctx, &tradovate.OsoReq{
-		AccountSpec:    req.AccountSpec,
-		AccountID:      uint(req.AccountId),
+		AccountSpec:    a.accountSpec,
+		AccountID:      a.accountID,
 		ClOrdID:        req.ClientOrderId,
 		Action:         ton.ProtoV0Action(req.Action),
 		Symbol:         req.Symbol,
@@ -86,8 +86,8 @@ func (a *app) CreateOsoOrder(ctx context.Context, req *ordersvc.CreateOsoOrderRe
 		Text:           req.Text,
 		ActivationTime: req.ActivationTime.AsTime(),
 		CustomTag50:    req.CustomTag_50,
-		Bracket1:       ton.ProtoV0OtherOrder(req.Bracket1),
-		Bracket2:       ton.ProtoV0OtherOrder(req.Bracket2),
+		Bracket1:       ton.ProtoV0OtherOrder(req.Bracket_1),
+		Bracket2:       ton.ProtoV0OtherOrder(req.Bracket_2),
 		IsAutomated:    true,
 	})
 

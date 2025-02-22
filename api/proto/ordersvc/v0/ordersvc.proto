@@ -88,25 +88,21 @@ message OtherOrder {
 // Create order 
 //====================================
 message CreateOrderRequest {
-  // Account username (might not be a field for long, as the server will handle this value)
-  string account_spec = 1;
-  // account ID (might not be a field for long, as the server will handle this value)
-  int64  account_id = 2;
   // Client order ID, created for idempotency
-  string client_order_id = 3;
-  Action action = 4;
-  string symbol = 5;
-  uint32 order_qty = 6;
-  OrderType order_type = 7;
-  double price = 8;
-  double stop_price = 9;
-  uint32 max_show = 10;
-  double peg_difference = 11;
-  TIF time_in_force = 12;
-  google.protobuf.Timestamp expire_time = 13;
-  string text = 14;
-  google.protobuf.Timestamp activation_time = 15;
-  string custom_tag_50 = 16;
+  string client_order_id = 1;
+  Action action = 2;
+  string symbol = 3;
+  uint32 order_qty = 4;
+  OrderType order_type = 5;
+  double price = 6;
+  double stop_price = 7;
+  uint32 max_show = 8;
+  double peg_difference = 9;
+  TIF time_in_force = 10;
+  google.protobuf.Timestamp expire_time = 11;
+  string text = 12;
+  google.protobuf.Timestamp activation_time = 13;
+  string custom_tag_50 = 14;
 }
 
 message CreateOrderResponse {
@@ -117,24 +113,21 @@ message CreateOrderResponse {
 // OcoReq
 //====================================
 message CreateOcoOrderRequest {
-  string account_spec = 1;
-  uint32 account_id = 2;
-  string client_order_id = 3;
-  Action action = 4;
-  string symbol = 5;
-  uint32 order_qty = 6;
-  OrderType order_type = 7;
-  double price = 8;
-  double stop_price = 9;
-  uint32 max_show = 10;
-  double peg_difference = 11;
-  TIF tif = 12;
-  google.protobuf.Timestamp expire_time = 13;
-  string text = 14;
-  google.protobuf.Timestamp activation_time = 15;
-  string custom_tag_50 = 16;
-  bool is_automated = 17;
-  OtherOrder other = 18;
+  string client_order_id = 1;
+  Action action = 2;
+  string symbol = 3;
+  uint32 order_qty = 4;
+  OrderType order_type = 5;
+  double price = 6;
+  double stop_price = 7;
+  uint32 max_show = 8;
+  double peg_difference = 9;
+  TIF tif = 10;
+  google.protobuf.Timestamp expire_time = 11;
+  string text = 12;
+  google.protobuf.Timestamp activation_time = 13;
+  string custom_tag_50 = 14;
+  OtherOrder other = 15;
 }
 
 message CreateOcoOrderResponse {
@@ -146,24 +139,22 @@ message CreateOcoOrderResponse {
 // OsoOrder
 //====================================
 message CreateOsoOrderRequest {
-  string account_spec = 1;
-  uint32 account_id = 2;
-  string client_order_id = 3;
-  Action action = 4;
-  string symbol = 5;
-  uint32 order_qty = 6;
-  OrderType order_type = 7;
-  double price = 8;
-  double stop_price = 9;
-  uint32 max_show = 10;
-  double peg_difference = 11;
-  TIF tif = 12;
-  google.protobuf.Timestamp expire_time = 13;
-  string text = 14;
-  google.protobuf.Timestamp activation_time = 15;
-  string custom_tag_50 = 16;
-  OtherOrder Bracket1 = 17;
-  OtherOrder Bracket2 = 18;
+  string client_order_id = 1;
+  Action action = 2;
+  string symbol = 3;
+  uint32 order_qty = 4;
+  OrderType order_type = 5;
+  double price = 6;
+  double stop_price = 7;
+  uint32 max_show = 8;
+  double peg_difference = 9;
+  TIF tif = 10;
+  google.protobuf.Timestamp expire_time = 11;
+  string text = 12;
+  google.protobuf.Timestamp activation_time = 13;
+  string custom_tag_50 = 14;
+  OtherOrder bracket_1 = 15;
+  OtherOrder bracket_2 = 16;
 }
 
 message CreateOsoOrderResponse {

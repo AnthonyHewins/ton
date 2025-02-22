@@ -12,7 +12,9 @@ import (
 
 type app struct {
 	*conf.Server
-	controller *ingest.Controller
+	accountSpec string
+	accountID   uint
+	controller  *ingest.Controller
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -26,7 +28,11 @@ func newApp(ctx context.Context) (*app, error) {
 		return nil, err
 	}
 
-	a := app{Server: (*conf.Server)(b)}
+	a := app{
+		Server:      (*conf.Server)(b),
+		accountSpec: c.AccountSpec,
+		accountID:   c.AccountID,
+	}
 	defer func() {
 		if err != nil {
 			a.shutdown()

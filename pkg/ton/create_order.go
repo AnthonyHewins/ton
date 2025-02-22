@@ -2,12 +2,10 @@ package ton
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/AnthonyHewins/ton/gen/go/ordersvc/v0"
 	"github.com/AnthonyHewins/tradovate"
-	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,8 +13,6 @@ import (
 )
 
 var (
-	ErrKeywatchStopped = errors.New("order keywatch stopped")
-
 	ErrActionMissing = status.Error(codes.InvalidArgument, "action must be buy or sell")
 	ErrSymbolMissing = status.Error(codes.InvalidArgument, "missing symbol")
 	ErrQtyMissing    = status.Error(codes.InvalidArgument, "missing qty")
@@ -24,9 +20,8 @@ var (
 )
 
 type CreateOrderReq struct {
-	AccountSpec    string
-	AccountID      int
-	ClOrdId        string
+	// ID you generate for idempotency
+	ClientID       string
 	Action         tradovate.Action
 	Symbol         string
 	OrderQty       uint32
@@ -59,9 +54,7 @@ func (c *CreateOrderReq) Validate() error {
 
 func (c *CreateOrderReq) protoV0() *ordersvc.CreateOrderRequest {
 	return &ordersvc.CreateOrderRequest{
-		AccountSpec:    c.AccountSpec,
-		AccountId:      int64(c.AccountID),
-		ClientOrderId:  c.ClOrdId,
+		ClientOrderId:  c.ClientID,
 		Action:         actionProtoV0(c.Action),
 		Symbol:         c.Symbol,
 		OrderQty:       c.OrderQty,
@@ -78,15 +71,6 @@ func (c *CreateOrderReq) protoV0() *ordersvc.CreateOrderRequest {
 	}
 }
 
-type OrdersClient struct {
-	client ordersvc.OrderServiceClient
-	kv     jetstream.KeyValue
-}
-
-func NewOrdersClient(conn *grpc.ClientConn, kv jetstream.KeyValue) *OrdersClient {
-	return &OrdersClient{client: ordersvc.NewOrderServiceClient(conn), kv: kv}
-}
-
 func (o *OrdersClient) Create(ctx context.Context, req *CreateOrderReq, opts ...grpc.CallOption) (int64, error) {
 	if err := req.Validate(); err != nil {
 		return 0, err
@@ -99,49 +83,3 @@ func (o *OrdersClient) Create(ctx context.Context, req *CreateOrderReq, opts ...
 
 	return resp.OrderId, nil
 }
-
-// func (o *OrdersClient) WatchOrders(ctx context.Context, fn func(*tradovate.Order), onError func(error)) ([]*tradovate.Order, error) {
-// 	kw, err := o.kv.WatchAll(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	initialOrders := []*tradovate.Order{}
-// 	for o := range kw.Updates() {
-// 		if o == nil {
-// 			break
-// 		}
-
-// 		var x ordersvc.Order
-// 		if err := proto.Unmarshal(o.Value(), &x); err != nil {
-// 			return nil, err
-// 		}
-
-// 		initialOrders = append(initialOrders, ProtoV0Order(&x))
-// 	}
-
-// 	go func() {
-// 		for {
-// 			select {
-// 			case <-ctx.Done():
-// 				go onError(ctx.Err())
-// 				return
-// 			case update := <-kw.Updates():
-// 				if update == nil {
-// 					go onError(ErrKeywatchStopped)
-// 					return
-// 				}
-
-// 				var x ordersvc.Order
-// 				if err := proto.Unmarshal(update.Value(), &x); err != nil {
-// 					go onError(err)
-// 					continue
-// 				}
-
-// 				go fn(ProtoV0Order(&x))
-// 			}
-// 		}
-// 	}()
-
-// 	return initialOrders, nil
-// }
