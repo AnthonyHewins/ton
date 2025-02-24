@@ -2,6 +2,8 @@ package ton
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/AnthonyHewins/ton/gen/go/ordersvc/v0"
 	"github.com/AnthonyHewins/tradovate"
@@ -9,9 +11,38 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type CreateOcoReq struct {
+var ErrMissingBracket = errors.New("missing bracket")
+
+type OcoReq struct {
 	Base    CreateOrderReq
 	Bracket *tradovate.OtherOrder
+}
+
+func (o *OcoReq) Validate() error {
+	if err := o.Base.Validate(); err != nil {
+		return err
+	}
+
+	if err := validateOther(o.Bracket); err != nil {
+		return fmt.Errorf("error in other order: %w", err)
+	}
+
+	return nil
+}
+
+func validateOther(o *tradovate.OtherOrder) error {
+	if o == nil {
+		return ErrMissingBracket
+	}
+
+	switch {
+	case o.Action == tradovate.ActionUnspecified:
+		return ErrActionMissing
+	case o.OrderType == tradovate.OrderTypeUnspecified:
+		return ErrTypeMissing
+	default:
+		return nil
+	}
 }
 
 func otherOrderProto(c *tradovate.OtherOrder) *ordersvc.OtherOrder {
@@ -29,7 +60,7 @@ func otherOrderProto(c *tradovate.OtherOrder) *ordersvc.OtherOrder {
 	}
 }
 
-func (c *CreateOcoReq) proto() *ordersvc.CreateOcoOrderRequest {
+func (c *OcoReq) proto() *ordersvc.CreateOcoOrderRequest {
 	return &ordersvc.CreateOcoOrderRequest{
 		ClientOrderId:  c.Base.ClientID,
 		Action:         actionProtoV0(c.Base.Action),
@@ -49,7 +80,7 @@ func (c *CreateOcoReq) proto() *ordersvc.CreateOcoOrderRequest {
 	}
 }
 
-func (o *OrdersClient) CreateOCO(ctx context.Context, req *CreateOcoReq, opts ...grpc.CallOption) (*tradovate.OcoResp, error) {
+func (o *OrdersClient) CreateOCO(ctx context.Context, req *OcoReq, opts ...grpc.CallOption) (*tradovate.OcoResp, error) {
 	resp, err := o.client.CreateOcoOrder(ctx, req.proto(), opts...)
 	if err != nil {
 		return nil, err

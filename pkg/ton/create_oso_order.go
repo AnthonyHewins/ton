@@ -2,6 +2,7 @@ package ton
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/AnthonyHewins/ton/gen/go/ordersvc/v0"
 	"github.com/AnthonyHewins/tradovate"
@@ -12,6 +13,20 @@ import (
 type OsoReq struct {
 	Base               CreateOrderReq
 	Bracket1, Bracket2 *tradovate.OtherOrder
+}
+
+func (o *OsoReq) Validate() error {
+	if err := o.Base.Validate(); err != nil {
+		return err
+	}
+
+	for i, v := range []*tradovate.OtherOrder{o.Bracket1, o.Bracket2} {
+		if err := validateOther(v); err != nil {
+			return fmt.Errorf("error in bracket %d: %w", i, ErrTypeMissing)
+		}
+	}
+
+	return nil
 }
 
 func (o *OsoReq) proto() *ordersvc.CreateOsoOrderRequest {
@@ -36,6 +51,10 @@ func (o *OsoReq) proto() *ordersvc.CreateOsoOrderRequest {
 }
 
 func (o *OrdersClient) CreateOSO(ctx context.Context, req *OsoReq, opts ...grpc.CallOption) (*tradovate.OsoResp, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
 	resp, err := o.client.CreateOsoOrder(ctx, req.proto(), opts...)
 	if err != nil {
 		return nil, err

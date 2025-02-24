@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+//go:generate ifacemaker -f *.go -s OrdersClient -i OrdersInterface -p ton -o orders_client_iface.go
 type OrdersClient struct {
 	client ordersvc.OrderServiceClient
 	kv     jetstream.KeyValue
